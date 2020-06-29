@@ -1,12 +1,12 @@
 package nsdw.vertiv.core
 
 import io.vertx.core.DeploymentOptions
-import io.vertx.core.http.HttpClientResponse
 import io.vertx.core.json.JsonObject
 import io.vertx.core.Vertx
 import io.vertx.junit5.VertxExtension
 import io.vertx.junit5.VertxTestContext
 import io.vertx.ext.web.client.WebClient
+import nsdw.vertiv.core.verticles.typicalserver.TypicalServerVerticle
 import nsdw.vertiv.utils.sockets.SocketUtil
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -26,8 +26,6 @@ class TypicalServerVerticleTest {
 
     @Test
     void testVerticleStartupSuccessful(VertxTestContext ctx) {
-        log.info "works?"
-
         def port = SocketUtil.tryAllocatePort(true)
         def deployOpts = new DeploymentOptions()
             .setConfig(
