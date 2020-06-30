@@ -1,9 +1,9 @@
 package nsdw.vertiv.core.verticles.typicalserver.startup
 
-import io.reactivex.rxjava3.core.Single
+import reactor.core.publisher.Mono
 
 interface IStartupStage {
-    Single<Object> execStage();
+    Mono<Object> execStage();
 }
 
 class ScheduledStartupStage {

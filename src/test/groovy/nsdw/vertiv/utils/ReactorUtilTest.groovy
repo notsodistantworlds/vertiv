@@ -1,8 +1,5 @@
 package nsdw.vertiv.utils
 
-import io.reactivex.rxjava3.core.Single
-import io.reactivex.rxjava3.functions.Consumer
-import io.reactivex.rxjava3.schedulers.Schedulers
 import io.vertx.core.Vertx
 import io.vertx.ext.web.client.WebClient
 import io.vertx.junit5.VertxExtension
@@ -12,11 +9,14 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Mono
 
-import static nsdw.vertiv.utils.RxUtil.*;
+import java.util.function.Consumer
+
+import static ReactorUtil.*;
 
 @ExtendWith(VertxExtension)
-class RxUtilTest {
+class ReactorUtilTest {
     static final log = LoggerFactory.getLogger(this.class)
 
     static WebClient webClient
@@ -32,17 +32,21 @@ class RxUtilTest {
         def iter = iterable.iterator()
 
         def i = 0;
-        def result = asyncReduceIterable(iter, 0, { element, sum ->
+        def result = asyncReduceIterableOnScheduler(new VertxScheduler(vertx),
+                iter, 0, { element, sum ->
             log.debug "On thread ${Thread.currentThread().name} async iteration $element $sum"
-            ctx.verify { assert element == iterable[i] }
+            ctx.verify {
+                assert Thread.currentThread().name.contains("vert.x-worker-thread")
+                assert element == iterable[i]
+            }
             i++;
-            return Single.just(sum+element)
+            return Mono.just(sum+element)
         })
         result.doOnSuccess((Consumer<Integer>){ calculatedSum ->
             log.debug "Reduced to $calculatedSum"
             ctx.verify { assert calculatedSum == 46 }
             ctx.completeNow()
-        }).subscribeOn(new VertxScheduler(vertx)).subscribe()
+        }).subscribe()
     }
 
 }

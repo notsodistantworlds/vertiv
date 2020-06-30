@@ -8,7 +8,8 @@ Just as a heads-up.
 * The target language is groovy,
   though you probably can use it from within Java if you don't mind the overhead of this dynamic 
   language.
-* Uses rxjava3. And you should, too. Don't be a b...uffer
+* Uses Spring Reactor. Which is in a way surprising considering my general dislike for Spring,
+but nevertheless, here we are. rxJava 3 did not meet my expectations.
 
 ### Build
 

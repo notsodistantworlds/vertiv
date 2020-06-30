@@ -1,26 +1,24 @@
 package nsdw.vertiv.core.verticles.typicalserver
 
-import io.reactivex.rxjava3.core.Maybe
-import io.reactivex.rxjava3.core.Single
-import io.reactivex.rxjava3.functions.Consumer
 import io.vertx.core.AbstractVerticle
 import io.vertx.core.Promise
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
 import io.vertx.ext.web.Router
+import nsdw.vertiv.core.verticles.typicalserver.startup.IStartupStage
 import nsdw.vertiv.core.verticles.typicalserver.startup.ScheduledStartupStage
 import nsdw.vertiv.core.verticles.typicalserver.startup.StartupStageCue
-import nsdw.vertiv.utils.RxUtil
 import nsdw.vertiv.utils.sockets.SocketUtil
 import org.slf4j.LoggerFactory
+import reactor.core.publisher.Mono
+
+import java.util.function.Consumer
 
 import static nsdw.vertiv.utils.ConciseCodeUtil.onNotNull
-import static nsdw.vertiv.utils.RxUtil.*
-import static nsdw.vertiv.utils.RxUtil.CONTINUE
-import static nsdw.vertiv.utils.RxUtil.CONTINUE
+import static nsdw.vertiv.utils.ReactorUtil.*
 
 class TypicalServerVerticle extends AbstractVerticle {
-    def log = LoggerFactory.getLogger(this.class)
+    protected static final def log = LoggerFactory.getLogger(this.class)
 
     Router router;
     List<ScheduledStartupStage> scheduledStartupStages;
@@ -32,7 +30,11 @@ class TypicalServerVerticle extends AbstractVerticle {
     @Override
     void start(Promise<Void> startPromised){
         try{
-            Single.just(CONTINUE)
+            // TODO pass in through a constructor(?)
+            if(scheduledStartupStages == null) {
+                scheduledStartupStages = provideStartupScheduleSelf();
+            }
+            Mono.just(CONTINUE)
                 .flatMap({ __ ->
                     log.info "Verticle startup begin..."
                     return execStartupStages(StartupStageCue.BEFORE_ALL)
@@ -48,7 +50,7 @@ class TypicalServerVerticle extends AbstractVerticle {
                     router.get("/about").handler(rtx -> {
                         rtx.response().setStatusCode(200).end("${this.class.simpleName} - fallback about page!");
                     })
-                    Single.just(CONTINUE)
+                    Mono.just(CONTINUE)
                 })
                 .flatMap(__ -> execStartupStages(StartupStageCue.AFTER_ROUTER_SETUP))
 
@@ -66,13 +68,13 @@ class TypicalServerVerticle extends AbstractVerticle {
                     log.info "Server startup..."
                     HttpServer server = vertx.createHttpServer(httpOptions)
                     server.requestHandler(router)
-                    observeAR ({ handler ->
+                    monoFromVertxAR ({ handler ->
                         server.listen(handler)
                     }).doOnNext(startedServer -> {
                         log.info "Server startup complete. Listening on port $httpOptions.port"
                     }).doOnError(error -> {
                         log.error("Server failed to start!", error)
-                    }).collect(observeFirst())
+                    })
                 })
                 .flatMap(__ -> execStartupStages(StartupStageCue.AFTER_SERVER_STARTUP))
 
@@ -90,12 +92,16 @@ class TypicalServerVerticle extends AbstractVerticle {
         }
     }
 
-    Single<Object> execStartupStages(StartupStageCue cue) {
+    Mono<Object> execStartupStages(StartupStageCue cue) {
         def parralelizable = scheduledStartupStages
                 .findAll { it.cue == cue }
                 .findAll { it.allowRunInParallel }
-                .collect { it.stage.execStage() }
-        Queue nonParallelizable = new LinkedList<>(scheduledStartupStages
+                .collect {
+                    it.stage.execStage()
+                        .doOnError(getStageCueErrorReporter(it.stage, cue))
+                }
+        Queue nonParallelizable = new LinkedList<>(
+                scheduledStartupStages
                 .findAll { it.cue == cue }
                 .findAll { !it.allowRunInParallel })
         after(parralelizable)
@@ -103,7 +109,17 @@ class TypicalServerVerticle extends AbstractVerticle {
                     asyncReduceIterable(nonParallelizable.iterator(), CONTINUE,
                             (ScheduledStartupStage scheduled, ___) -> {
                                 scheduled.stage.execStage()
+                                        .doOnError(getStageCueErrorReporter(scheduled.stage, cue))
                             })
-                })//.subscribe(__ -> 0, err -> log.error("\n\n\n", err))
+                })
     }
+
+    private static Consumer<Throwable> getStageCueErrorReporter(IStartupStage stage, StartupStageCue cue) {
+        return { throwable ->
+            log.error "IStartupStage $stage (concrete type ${stage.getClass()}) \n" +
+                    "failed on cue $cue\n " +
+                    "and reported it as Throwable ${throwable.getClass()}", throwable
+        }
+    }
+
 }

@@ -149,11 +149,11 @@
             <type>pom</type> <!-- required JUST since Groovy 2.5.0 -->
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/io.reactivex.rxjava3/rxjava -->
+        <!-- https://mvnrepository.com/artifact/io.projectreactor/reactor-core -->
         <dependency>
-            <groupId>io.reactivex.rxjava3</groupId>
-            <artifactId>rxjava</artifactId>
-            <version>3.0.4</version>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <version>3.3.7.RELEASE</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
